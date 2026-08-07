@@ -22,13 +22,15 @@ export function normalizeKePhone(input) {
 }
 
 /**
- * Back to the local 07XXXXXXXX / 01XXXXXXXX form.
+ * E.164 form (+254XXXXXXXXX) — what Paystack's mobile_money endpoint requires.
  *
- * Paystack's mobile_money endpoint rejects the 254… form with "Invalid phone
- * number format", so the canonical value we store is not the one we send.
+ * The leading + is not optional here. Both the bare 254… and the local 07…
+ * forms come back as "Invalid phone number format", so the value we store is
+ * deliberately not the value we send.
+ * https://paystack.com/docs/payments/payment-channels/
  */
-export function toLocalKePhone(normalized) {
-  return `0${String(normalized).slice(3)}`
+export function toPaystackPhone(normalized) {
+  return `+${normalized}`
 }
 
 export function parseCheckout(body) {

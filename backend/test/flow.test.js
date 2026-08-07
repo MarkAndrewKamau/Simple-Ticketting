@@ -102,8 +102,8 @@ const paystack = http.createServer((req, res) => {
         res.writeHead(400)
         return res.end(JSON.stringify({ status: false, message: mock.failCharge }))
       }
-      // Real Paystack rejects anything but the local 07…/01… form here.
-      if (!/^0(7|1)\d{8}$/.test(body.mobile_money?.phone ?? '')) {
+      // Real Paystack requires E.164 here — the leading + is not optional.
+      if (!/^\+254(7|1)\d{8}$/.test(body.mobile_money?.phone ?? '')) {
         res.writeHead(400)
         return res.end(JSON.stringify({ status: false, message: 'Invalid phone number format' }))
       }
@@ -247,7 +247,7 @@ test('bad input is rejected with a readable message', async () => {
   }
 })
 
-test('any way of writing the number reaches Paystack as local 07…', async () => {
+test('any way of writing the number reaches Paystack as E.164 +254…', async () => {
   mock.chargedPhones.length = 0
 
   for (const phone of ['0733111222', '254733111222', '+254 733 111 222', '733111222']) {
@@ -256,8 +256,8 @@ test('any way of writing the number reaches Paystack as local 07…', async () =
     assert.equal(body.status, 'pending', `${phone} → ${body.status}`)
   }
 
-  // Paystack's mobile_money endpoint rejects the 254… form outright.
-  assert.deepEqual([...new Set(mock.chargedPhones)], ['0733111222'])
+  // Paystack rejects both the bare 254… and the local 07… forms outright.
+  assert.deepEqual([...new Set(mock.chargedPhones)], ['+254733111222'])
 
   const res = await get('/api/orders?token=test-admin-token-0123456789')
   const { orders } = await res.json()

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { config } from '../config.js'
 import { orders } from '../db.js'
-import { parseCheckout, toLocalKePhone } from '../lib/validate.js'
+import { parseCheckout, toPaystackPhone } from '../lib/validate.js'
 import { createRateLimiter } from '../lib/rateLimit.js'
 import { generateReference } from '../lib/reference.js'
 import { chargeMobileMoney, PaystackError } from '../paystack.js'
@@ -77,8 +77,8 @@ router.post('/checkout', async (req, res, next) => {
         reference,
         email: chargeEmail,
         amountCents,
-        // Paystack wants the local 07… form here, not the stored 254… one.
-        phone: toLocalKePhone(phone),
+        // Paystack wants E.164 (+254…) here, not the stored 254… form.
+        phone: toPaystackPhone(phone),
         metadata: {
           parent_name: name,
           tickets: quantity,
@@ -92,7 +92,14 @@ router.post('/checkout', async (req, res, next) => {
     } catch (err) {
       if (err instanceof PaystackError) {
         await orders.updateStatus(reference, 'failed', { message: err.message })
-        console.error(`[checkout] charge failed for ${reference}: ${err.message}`)
+        // Log the whole response body, not just the message — Paystack often
+        // puts the offending field in `data`/`meta`, and without it a rejection
+        // costs a redeploy per guess to diagnose.
+        console.error(
+          `[checkout] charge failed for ${reference}: ${err.message}\n` +
+            `  sent phone: ${toPaystackPhone(phone)} · amount: ${amountCents} ${config.ticket.currency}\n` +
+            `  paystack response: ${JSON.stringify(err.details)}`,
+        )
         return res.status(err.status).json({ message: err.message, reference })
       }
       throw err
