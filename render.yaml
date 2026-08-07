@@ -1,0 +1,71 @@
+# Render Blueprint — deploys the API and the landing page together.
+#
+#   Render Dashboard → New → Blueprint → pick this repo
+#
+# Values marked sync:false are NOT stored in this file: Render prompts for them
+# on first deploy. Never commit the Paystack secret or the Atlas password.
+
+services:
+  # ---- API (Web Service) --------------------------------------------------
+  - type: web
+    name: family-connection-api
+    runtime: node
+    plan: starter # free tier sleeps after 15 min idle — see backend/README.md
+    region: frankfurt # closest Render region to Kenya
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: NODE_ENV
+        value: production
+      - key: TICKET_PRICE_KES
+        value: 1500
+      - key: MAX_TICKETS_PER_ORDER
+        value: 10
+      - key: FALLBACK_EMAIL_DOMAIN
+        value: guest.gracehha.ac.ke
+      - key: MONGODB_DB_NAME
+        value: family_connection
+      # Set these in the dashboard when prompted:
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true # Render generates a strong random value
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: web
+          name: family-connection-web
+          property: url
+
+  # ---- Landing page (Static Site) ----------------------------------------
+  - type: web
+    name: family-connection-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      # Baked into the bundle at build time, so a change here needs a rebuild.
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: family-connection-api
+          property: url
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

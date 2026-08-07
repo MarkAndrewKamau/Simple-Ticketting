@@ -146,7 +146,12 @@ export default function TicketBox() {
             {status === 'success' && order ? (
               <Confirmation order={order} onReset={() => { reset(); setForm(emptyForm) }} />
             ) : status === 'pending' ? (
-              <PendingPrompt phone={form.phone} total={total} onCancel={reset} />
+              <PendingPrompt
+                phone={form.phone}
+                total={total}
+                instruction={order?.instruction}
+                onCancel={reset}
+              />
             ) : (
               <form className="form" onSubmit={handleSubmit} noValidate>
                 {status === 'failed' && (
@@ -244,7 +249,7 @@ export default function TicketBox() {
   )
 }
 
-function PendingPrompt({ phone, total, onCancel }) {
+function PendingPrompt({ phone, total, instruction, onCancel }) {
   return (
     <div className="state">
       <span className="state__pulse">
@@ -255,6 +260,7 @@ function PendingPrompt({ phone, total, onCancel }) {
         We sent a request for <strong>{formatKes(total)}</strong> to{' '}
         <strong>{formatKePhone(phone)}</strong>. Enter your M-Pesa PIN to confirm.
       </p>
+      {instruction && <p className="state__instruction">{instruction}</p>}
       <p className="state__hint">Keep this page open — it updates the moment payment lands.</p>
       <button className="btn btn--ghost btn--block" type="button" onClick={onCancel}>
         Cancel and start over

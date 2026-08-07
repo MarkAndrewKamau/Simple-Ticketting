@@ -1131,6 +1131,14 @@ img, svg {
   color: var(--teal) !important;
 }
 
+/* Paystack's own wording for the prompt, when it sends one. */
+.state__instruction {
+  font-size: 0.85rem !important;
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
 .state__pulse,
 .state__check {
   width: 74px;
