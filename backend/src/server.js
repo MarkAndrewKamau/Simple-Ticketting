@@ -10,7 +10,21 @@ try {
 } catch (err) {
   console.error('\n  Could not connect to MongoDB.')
   console.error(`  ${err.message}\n`)
-  console.error('  Check MONGODB_URI, and that this host is allowed in Atlas → Network Access.\n')
+
+  // Auth failures and reachability failures have completely different fixes,
+  // and pointing at the wrong one costs a deploy cycle to discover.
+  if (/bad auth|Authentication failed|AuthenticationFailed/i.test(err.message)) {
+    console.error('  Atlas was reached but rejected the credentials. Check, in order:')
+    console.error('   1. The password placeholder was replaced (no <db_password> in the URI).')
+    console.error('   2. Special characters in the password are URL-encoded (@ : / ? # % &).')
+    console.error('   3. The username matches Atlas → Database Access exactly.')
+    console.error('   4. No stray quotes, spaces or newlines around the value.')
+    console.error('   5. No authSource override — Atlas users live in "admin".\n')
+  } else {
+    console.error('  Atlas could not be reached. Check that this host is allowed in')
+    console.error('  Atlas → Network Access, and that the cluster is not paused.\n')
+  }
+
   process.exit(1)
 }
 

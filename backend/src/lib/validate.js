@@ -21,6 +21,16 @@ export function normalizeKePhone(input) {
   return null
 }
 
+/**
+ * Back to the local 07XXXXXXXX / 01XXXXXXXX form.
+ *
+ * Paystack's mobile_money endpoint rejects the 254… form with "Invalid phone
+ * number format", so the canonical value we store is not the one we send.
+ */
+export function toLocalKePhone(normalized) {
+  return `0${String(normalized).slice(3)}`
+}
+
 export function parseCheckout(body) {
   if (!body || typeof body !== 'object') {
     throw new ValidationError('Please send your booking details.')

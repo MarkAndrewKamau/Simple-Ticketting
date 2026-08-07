@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { config } from '../config.js'
 import { orders } from '../db.js'
-import { parseCheckout } from '../lib/validate.js'
+import { parseCheckout, toLocalKePhone } from '../lib/validate.js'
 import { createRateLimiter } from '../lib/rateLimit.js'
 import { generateReference } from '../lib/reference.js'
 import { chargeMobileMoney, PaystackError } from '../paystack.js'
@@ -77,7 +77,8 @@ router.post('/checkout', async (req, res, next) => {
         reference,
         email: chargeEmail,
         amountCents,
-        phone,
+        // Paystack wants the local 07… form here, not the stored 254… one.
+        phone: toLocalKePhone(phone),
         metadata: {
           parent_name: name,
           tickets: quantity,

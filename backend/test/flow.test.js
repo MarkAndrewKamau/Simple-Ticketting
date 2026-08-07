@@ -83,7 +83,12 @@ async function startMongo() {
 }
 
 // Mock Paystack ------------------------------------------------------------
-const mock = { charges: new Map(), nextChargeStatus: 'pay_offline', failCharge: null }
+const mock = {
+  charges: new Map(),
+  chargedPhones: [],
+  nextChargeStatus: 'pay_offline',
+  failCharge: null,
+}
 
 const paystack = http.createServer((req, res) => {
   const chunks = []
@@ -97,6 +102,12 @@ const paystack = http.createServer((req, res) => {
         res.writeHead(400)
         return res.end(JSON.stringify({ status: false, message: mock.failCharge }))
       }
+      // Real Paystack rejects anything but the local 07…/01… form here.
+      if (!/^0(7|1)\d{8}$/.test(body.mobile_money?.phone ?? '')) {
+        res.writeHead(400)
+        return res.end(JSON.stringify({ status: false, message: 'Invalid phone number format' }))
+      }
+      mock.chargedPhones.push(body.mobile_money.phone)
       mock.charges.set(body.reference, {
         id: 991234,
         reference: body.reference,
@@ -236,12 +247,17 @@ test('bad input is rejected with a readable message', async () => {
   }
 })
 
-test('phone numbers normalise to the 254 form Paystack expects', async () => {
+test('any way of writing the number reaches Paystack as local 07…', async () => {
+  mock.chargedPhones.length = 0
+
   for (const phone of ['0733111222', '254733111222', '+254 733 111 222', '733111222']) {
     const res = await post('/api/checkout', { name: 'Mary Achieng', phone, quantity: 1 })
     const body = await res.json()
-    assert.ok(['pending'].includes(body.status), `${phone} → ${body.status}`)
+    assert.equal(body.status, 'pending', `${phone} → ${body.status}`)
   }
+
+  // Paystack's mobile_money endpoint rejects the 254… form outright.
+  assert.deepEqual([...new Set(mock.chargedPhones)], ['0733111222'])
 
   const res = await get('/api/orders?token=test-admin-token-0123456789')
   const { orders } = await res.json()
