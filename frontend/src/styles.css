@@ -14,6 +14,12 @@
   --coral: #e2545f;
   --cream: #fbf6ec;
   --cream-2: #fffcf5;
+
+  /* Partner brand — Nairobi Verified. Kept as its own token so the partnership
+     reads as a guest on the page rather than part of the school palette. */
+  --nv-orange: #f05c14;
+  --nv-orange-2: #ff7c33;
+
   --ink: #1b2b45;
   --muted: #5f6f88;
   --line: #e7ddc9;
@@ -181,6 +187,16 @@ img, svg {
 .btn--ghost:hover {
   border-color: var(--navy);
   background: rgba(13, 37, 71, 0.04);
+}
+
+.btn--nv {
+  background: var(--nv-orange);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(240, 92, 20, 0.32);
+}
+
+.btn--nv:hover:not(:disabled) {
+  background: var(--nv-orange-2);
 }
 
 .btn--lg {
@@ -483,7 +499,27 @@ img, svg {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 28px 28px;
+  padding: 18px 28px 22px;
+}
+
+/* Partner credit along the foot of the stub, like a ticket's small print. */
+.stub__verified {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 11px 28px 14px;
+  border-top: 1px dashed rgba(251, 246, 236, 0.18);
+  color: var(--nv-orange-2);
+}
+
+/* Scoped to the label only — a bare `span` selector here outranks the lockup's
+   own .nvLogo__name / .nvLogo__sub rules and repaints the logo. */
+.stub__verifiedLabel {
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(251, 246, 236, 0.55);
 }
 
 .stub__label {
@@ -841,6 +877,190 @@ img, svg {
   font-size: 0.95rem;
   color: rgba(13, 37, 71, 0.78);
   margin-top: 4px;
+}
+
+/* ---------- Nairobi Verified lockup -------------------------------------- */
+
+/* Everything scales off --nv-h (the pill height), set inline by the component. */
+.nvLogo {
+  --nv-h: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--nv-h) * 0.22);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.nvLogo--pill {
+  background: var(--nv-orange);
+  color: #fff;
+  padding: calc(var(--nv-h) * 0.17) calc(var(--nv-h) * 0.42);
+  border-radius: 999px;
+}
+
+.nvLogo--mono {
+  color: inherit;
+}
+
+.nvLogo__glass {
+  flex: none;
+  width: calc(var(--nv-h) * 0.62);
+  height: calc(var(--nv-h) * 0.62);
+}
+
+.nvLogo__word {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--nv-h) * 0.05);
+}
+
+.nvLogo__name {
+  font-size: calc(var(--nv-h) * 0.4);
+  font-weight: 800;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+}
+
+.nvLogo__sub {
+  font-size: calc(var(--nv-h) * 0.27);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Partner band ------------------------------------------------- */
+
+.partner {
+  position: relative;
+  overflow: hidden;
+  background: var(--cream-2);
+  border-top: 3px solid var(--nv-orange);
+  padding-block: clamp(46px, 7vw, 76px);
+}
+
+/* Warm wash so the orange feels at home on the cream without repainting it. */
+.partner::before {
+  content: '';
+  position: absolute;
+  left: -8%;
+  bottom: -55%;
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 92, 20, 0.15), transparent 68%);
+  pointer-events: none;
+}
+
+.partner__inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(26px, 5vw, 56px);
+}
+
+.partner__sealWrap {
+  display: flex;
+  justify-content: center;
+}
+
+/* An ink stamp, struck slightly off-square the way a real one lands. */
+.partner__seal {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--nv-orange);
+  background: rgba(240, 92, 20, 0.06);
+  border: 3px solid rgba(240, 92, 20, 0.55);
+  border-radius: 50%;
+  transform: rotate(-8deg);
+}
+
+.partner__sealRing {
+  position: absolute;
+  inset: 9px;
+  border: 2px dashed rgba(240, 92, 20, 0.42);
+  border-radius: 50%;
+}
+
+.partner__sealText {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.partner__sealDate {
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.partner__kicker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.partner__logoLink {
+  display: inline-block;
+  transition: transform 0.16s ease;
+}
+
+.partner__bigLogo {
+  --nv-h: clamp(42px, 6vw, 54px);
+}
+
+.partner__logoLink:hover {
+  transform: translateY(-2px);
+}
+
+.partner__lead {
+  margin-top: 18px;
+  max-width: 54ch;
+  font-size: 1.02rem;
+  color: var(--muted);
+}
+
+.partner__points {
+  display: grid;
+  gap: 11px;
+  margin-top: 20px;
+}
+
+.partner__points li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.partner__pointIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(240, 92, 20, 0.12);
+  color: var(--nv-orange);
+}
+
+.partner .btn--nv {
+  margin-top: 26px;
 }
 
 /* ---------- Tickets ------------------------------------------------------ */
@@ -1388,6 +1608,19 @@ img, svg {
   color: var(--gold-light);
 }
 
+.footer__partner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-block: 22px 30px;
+  border-top: 1px solid rgba(251, 246, 236, 0.14);
+}
+
+.footer__partner .footer__label {
+  margin-bottom: 0;
+}
+
 .valuesStrip {
   display: flex;
   flex-wrap: wrap;
@@ -1448,6 +1681,22 @@ img, svg {
 
   .together {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  /* Seal stacks above the copy and shrinks so it stays a detail, not a hero. */
+  .partner__inner {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .partner__sealWrap {
+    justify-content: flex-start;
+  }
+
+  .partner__seal {
+    width: 168px;
+    height: 168px;
+    gap: 6px;
   }
 }
 
@@ -1525,6 +1774,30 @@ img, svg {
 
   .hero__actions .btn {
     width: 100%;
+  }
+
+  .stub__verified {
+    padding-inline: 20px;
+  }
+
+  /* The ring is a fixed circle, so the type inside has to come down with it —
+     otherwise the date line runs out through the edge. */
+  .partner__seal {
+    width: 158px;
+    height: 158px;
+    padding: 15px;
+    gap: 5px;
+    border-width: 2px;
+  }
+
+  .partner__sealText {
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+  }
+
+  .partner__sealDate {
+    font-size: 0.57rem;
+    letter-spacing: 0.06em;
   }
 }
 

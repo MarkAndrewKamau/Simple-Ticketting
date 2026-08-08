@@ -1,5 +1,6 @@
 import Icon from './Icons.jsx'
 import Crest from './Crest.jsx'
+import NairobiVerified from './NairobiVerified.jsx'
 import { event } from '../data/event.js'
 
 export default function Footer() {
@@ -21,6 +22,13 @@ export default function Footer() {
             {event.phone}
           </a>
         </div>
+      </div>
+
+      <div className="shell footer__partner">
+        <p className="footer__label">{event.partner.kicker}</p>
+        <a href={event.partner.url} target="_blank" rel="noreferrer">
+          <NairobiVerified height={34} />
+        </a>
       </div>
 
       <ul className="valuesStrip">

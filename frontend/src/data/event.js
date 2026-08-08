@@ -83,6 +83,24 @@ export const event = {
   ],
 
   values: ['Christ-Centered', 'Safe Environment', 'Caring Teachers', 'Holistic Education'],
+
+  // Discovery partner. Copy here is deliberately factual — it says the event is
+  // listed with them, not that they audited anything — so confirm the exact
+  // wording with Nairobi Verified before this goes live.
+  partner: {
+    name: 'Nairobi Verified',
+    url: 'https://nairobiverified.co.ke',
+    domain: 'nairobiverified.co.ke',
+    kicker: 'In partnership with',
+    lead: 'We’ve teamed up with Nairobi Verified — the city’s guide to what’s actually worth your weekend — so more families can find their way to this day.',
+    stamp: 'Verified listing',
+    points: [
+      { icon: 'check', text: 'A verified listing on nairobiverified.co.ke' },
+      { icon: 'pin', text: 'Discover more family-friendly things to do around Nairobi' },
+      { icon: 'sparkle', text: 'Follow them for what’s on next' },
+    ],
+    cta: 'See it on Nairobi Verified',
+  },
 }
 
 export const formatKes = (amount) => `KSh ${amount.toLocaleString('en-KE')}`

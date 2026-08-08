@@ -1,5 +1,6 @@
 import Icon from './Icons.jsx'
 import Crest from './Crest.jsx'
+import NairobiVerified from './NairobiVerified.jsx'
 import { event, formatKes, isFamilyOfferActive } from '../data/event.js'
 
 const details = [
@@ -100,6 +101,12 @@ export default function Hero() {
                 </p>
               </div>
             </div>
+
+            {/* Reads like the small print along the bottom of a real ticket. */}
+            <p className="stub__verified">
+              <span className="stub__verifiedLabel">Listed on</span>
+              <NairobiVerified variant="mono" height={20} />
+            </p>
           </div>
 
           <div className="audienceBadge">
