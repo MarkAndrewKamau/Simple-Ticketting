@@ -38,9 +38,26 @@ Every event detail — date, time, itinerary, price, phone number, audience —
 lives in [frontend/src/data/event.js](frontend/src/data/event.js). Change it
 there and it updates everywhere on the page.
 
-The school crest is currently a stylised SVG stand-in in
-[frontend/src/components/Crest.jsx](frontend/src/components/Crest.jsx). Drop the
-real logo into `frontend/public/` and render an `<img>` instead.
+The school crest is `frontend/public/logo.png` — the supplied artwork with its
+cream background knocked out, so it sits cleanly on both the cream and navy
+sections. Replace that one file to update the nav, hero, footer and favicon.
+
+## QR code
+
+```bash
+cd frontend
+npm run qr                          # uses the deployed URL
+npm run qr -- https://your-url.com  # or pass one
+```
+
+Writes `public/qr-book.png` (1200px, for print and WhatsApp) and
+`public/qr-book.svg` (vector, for any poster size). It encodes the `#book`
+anchor, so scanning opens the payment form directly rather than the top of the
+page.
+
+Generated at error-correction level H with a full quiet zone — it still decodes
+at 120px wide. Do not crop the white border or print it inverted; both are the
+usual ways a QR stops scanning.
 
 ## Payment flow
 

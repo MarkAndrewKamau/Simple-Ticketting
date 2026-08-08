@@ -30,7 +30,7 @@ export default function Nav() {
           <a href="#tickets">Tickets</a>
         </nav>
 
-        <a className="btn btn--gold nav__cta" href="#tickets">
+        <a className="btn btn--gold nav__cta" href="#book">
           <Icon name="ticket" size={18} />
           Book · {formatKes(event.ticket.priceKes)}
         </a>

@@ -125,7 +125,9 @@ export default function TicketBox() {
           </a>
         </div>
 
-        <div className="ticketCard">
+        {/* Own anchor: on mobile the pitch column stacks above this card, so
+            jumping to #tickets leaves the form a screen below the fold. */}
+        <div className="ticketCard" id="book">
           <div className="ticketCard__head">
             <div>
               <p className="ticketCard__kicker">Family Connection Experience</p>

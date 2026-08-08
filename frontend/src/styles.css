@@ -66,6 +66,11 @@ img, svg {
   max-width: 100%;
 }
 
+.crest {
+  flex: none;
+  object-fit: contain;
+}
+
 .shell {
   width: 100%;
   max-width: var(--shell);
@@ -1308,6 +1313,14 @@ img, svg {
 
   .nav__brand small {
     font-size: 0.66rem;
+  }
+
+  /* Crest + booking button only — the wordmark wraps to three lines next to
+     the CTA on narrow phones, and the hero repeats it immediately below. */
+  @media (max-width: 460px) {
+    .nav__brand span {
+      display: none;
+    }
   }
 
   /* On narrow screens the confetti lands on top of the copy */

@@ -41,7 +41,7 @@ export default function Hero() {
           <p className="hero__intro">{event.intro}</p>
 
           <div className="hero__actions">
-            <a className="btn btn--gold btn--lg" href="#tickets">
+            <a className="btn btn--gold btn--lg" href="#book">
               <Icon name="ticket" size={20} />
               Get your ticket
               <Icon name="arrow" size={18} />

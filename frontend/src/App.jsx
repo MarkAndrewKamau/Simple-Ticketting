@@ -5,8 +5,11 @@ import Itinerary from './components/Itinerary.jsx'
 import FunBanner from './components/FunBanner.jsx'
 import TicketBox from './components/TicketBox.jsx'
 import Footer from './components/Footer.jsx'
+import { useHashScroll } from './lib/useHashScroll.js'
 
 export default function App() {
+  useHashScroll()
+
   return (
     <>
       <Nav />
