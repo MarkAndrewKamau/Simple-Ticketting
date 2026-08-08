@@ -33,7 +33,24 @@ export function toPaystackPhone(normalized) {
   return `+${normalized}`
 }
 
-export function parseCheckout(body) {
+/** Is the flat family rate still on offer? Server clock only. */
+export function isFamilyOfferActive(now = new Date()) {
+  return now.getTime() <= config.ticket.offerEndsAt.getTime()
+}
+
+/**
+ * Price for a booking, in cents.
+ *
+ * The family rate is flat regardless of headcount — a household of nine pays
+ * the same as a household of three. We still record the headcount because the
+ * school needs it for catering and seating.
+ */
+export function computeAmountCents({ ticketType, parents, children }) {
+  if (ticketType === 'family') return config.ticket.familyCents
+  return parents * config.ticket.parentCents + children * config.ticket.childCents
+}
+
+export function parseCheckout(body, now = new Date()) {
   if (!body || typeof body !== 'object') {
     throw new ValidationError('Please send your booking details.')
   }
@@ -53,16 +70,45 @@ export function parseCheckout(body) {
     throw new ValidationError('That email address does not look right.')
   }
 
-  const quantity = Number(body.quantity)
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > config.ticket.maxPerOrder) {
+  const ticketType = String(body.ticketType ?? '')
+  if (ticketType !== 'family' && ticketType !== 'per_head') {
+    throw new ValidationError('Please choose either the family ticket or per-person pricing.')
+  }
+
+  // The expiry is enforced here, not in the browser. A stale tab, a wound-back
+  // device clock, or a hand-crafted request must not buy the offer late.
+  if (ticketType === 'family' && !isFamilyOfferActive(now)) {
     throw new ValidationError(
-      `Please choose between 1 and ${config.ticket.maxPerOrder} tickets. For a larger group, call us.`,
+      'The family offer has now closed. Please choose per-person pricing to continue.',
     )
   }
 
-  // The client never sends an amount — we derive it from the fixed price so a
-  // tampered request cannot buy a ticket for less.
-  const amountCents = config.ticket.priceCents * quantity
+  const parents = Number(body.parents)
+  if (!Number.isInteger(parents) || parents < 1 || parents > config.ticket.maxParents) {
+    throw new ValidationError(
+      `Please enter between 1 and ${config.ticket.maxParents} parents or guardians.`,
+    )
+  }
 
-  return { name, phone, email: email || null, quantity, amountCents }
+  const children = Number(body.children)
+  if (!Number.isInteger(children) || children < 0 || children > config.ticket.maxChildren) {
+    throw new ValidationError(
+      `Please enter up to ${config.ticket.maxChildren} children. For a larger group, call us.`,
+    )
+  }
+
+  // The client never sends an amount — we derive it here so a tampered request
+  // cannot buy a ticket for less.
+  const amountCents = computeAmountCents({ ticketType, parents, children })
+
+  return {
+    name,
+    phone,
+    email: email || null,
+    ticketType,
+    parents,
+    children,
+    attendees: parents + children,
+    amountCents,
+  }
 }

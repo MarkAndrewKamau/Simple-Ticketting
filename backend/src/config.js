@@ -49,11 +49,27 @@ export const config = {
   // Amounts are held in the currency's minor unit (cents) end to end, so we
   // never do floating-point arithmetic on money.
   ticket: {
-    priceKes: int('TICKET_PRICE_KES', 1500),
-    get priceCents() {
-      return this.priceKes * 100
-    },
-    maxPerOrder: int('MAX_TICKETS_PER_ORDER', 10),
+    parentCents: int('PARENT_PRICE_KES', 1000) * 100,
+    childCents: int('CHILD_PRICE_KES', 500) * 100,
+    // Flat rate covering a whole household, however large — that is the point
+    // of the promotion, so there is no headcount cap on it.
+    familyCents: int('FAMILY_PRICE_KES', 2500) * 100,
+
+    // After this instant the family rate is refused. Parsed once at boot so a
+    // malformed value fails loudly here rather than silently never expiring.
+    offerEndsAt: (() => {
+      const raw = process.env.OFFER_ENDS_AT || '2026-08-12T23:59:59+03:00'
+      const parsed = new Date(raw)
+      if (Number.isNaN(parsed.getTime())) {
+        console.error(`\n  OFFER_ENDS_AT is not a valid date: "${raw}"\n`)
+        process.exit(1)
+      }
+      return parsed
+    })(),
+
+    // Generous, but not unbounded — these only stop absurd input.
+    maxParents: int('MAX_PARENTS_PER_ORDER', 10),
+    maxChildren: int('MAX_CHILDREN_PER_ORDER', 20),
     currency: 'KES',
   },
 

@@ -27,7 +27,7 @@ export async function applyTransaction(order, tx, source) {
       )
       return orders.updateStatus(order.reference, 'failed', {
         message:
-          'The amount received did not match this booking. Please contact us on 0707 777 978 and quote your reference.',
+          'The amount received did not match this booking. Please contact us on 0745 418 065 and quote your reference.',
         paystackId: tx.id ? String(tx.id) : null,
       })
     }
@@ -84,7 +84,10 @@ export function toPublicOrder(order) {
   return {
     reference: order.reference,
     status: order.status,
-    quantity: order.quantity,
+    ticketType: order.ticketType,
+    parents: order.parents,
+    children: order.children,
+    attendees: order.attendees,
     amount: order.amountCents / 100,
     currency: order.currency,
     message: order.message || undefined,

@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { config } from './config.js'
 import { ping } from './db.js'
-import { ValidationError } from './lib/validate.js'
+import { ValidationError, isFamilyOfferActive } from './lib/validate.js'
 import { PaystackError } from './paystack.js'
 import webhookRoutes from './routes/webhook.js'
 import checkoutRoutes from './routes/checkout.js'
@@ -37,8 +37,16 @@ export function createApp() {
   app.get('/api/health', async (req, res) => {
     const base = {
       mode: config.paystack.isLive ? 'live' : 'test',
-      ticketPrice: config.ticket.priceKes,
       currency: config.ticket.currency,
+      pricing: {
+        parent: config.ticket.parentCents / 100,
+        child: config.ticket.childCents / 100,
+        family: config.ticket.familyCents / 100,
+      },
+      familyOffer: {
+        active: isFamilyOfferActive(),
+        endsAt: config.ticket.offerEndsAt.toISOString(),
+      },
     }
     try {
       await ping()

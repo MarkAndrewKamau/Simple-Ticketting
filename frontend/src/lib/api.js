@@ -20,13 +20,14 @@ async function request(path, options = {}) {
 }
 
 /**
- * Starts a Paystack mobile-money charge. The backend calculates the amount
- * from the fixed ticket price, so we never send money values from the client.
+ * Starts a Paystack mobile-money charge. The backend prices the booking from
+ * the ticket type and headcount, so we never send money values from the client
+ * — and it re-checks the family offer deadline against its own clock.
  */
-export function initiateCheckout({ name, email, phone, quantity }) {
+export function initiateCheckout({ name, email, phone, ticketType, parents, children }) {
   return request('/api/checkout', {
     method: 'POST',
-    body: JSON.stringify({ name, email, phone, quantity }),
+    body: JSON.stringify({ name, email, phone, ticketType, parents, children }),
   })
 }
 

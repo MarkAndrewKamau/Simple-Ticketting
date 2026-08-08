@@ -1,24 +1,38 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Icon from './Icons.jsx'
-import { event, formatKes } from '../data/event.js'
+import { event, formatKes, isFamilyOfferActive } from '../data/event.js'
 import { normalizeKePhone, formatKePhone } from '../lib/phone.js'
 import { initiateCheckout, getOrderStatus } from '../lib/api.js'
 
-const MAX_TICKETS = 10
+const MAX_PARENTS = 10
+const MAX_CHILDREN = 20
 const POLL_INTERVAL_MS = 4000
 const POLL_TIMEOUT_MS = 150000 // ~2.5 min, a little past the STK prompt's own expiry
 
-const emptyForm = { name: '', phone: '', email: '', quantity: 1 }
+const emptyForm = { name: '', phone: '', email: '', parents: 1, children: 1 }
 
 export default function TicketBox() {
   const [form, setForm] = useState(emptyForm)
+  // Per-person is the starting selection because at the opening headcount
+  // (1 parent, 1 child) it costs KSh 1,500 against the family rate's 2,500.
+  // Pre-selecting the offer there would quietly charge 1,000 more than needed.
+  // Once a family adds people the card shows what they would save by switching.
+  const [ticketType, setTicketType] = useState('per_head')
   const [errors, setErrors] = useState({})
   const [status, setStatus] = useState('idle') // idle | sending | pending | success | failed
   const [message, setMessage] = useState('')
   const [order, setOrder] = useState(null)
   const pollRef = useRef(null)
 
-  const total = form.quantity * event.ticket.priceKes
+  const offerActive = isFamilyOfferActive()
+
+  const perHeadTotal =
+    form.parents * event.ticket.parentKes + form.children * event.ticket.childKes
+  const total = ticketType === 'family' ? event.ticket.familyKes : perHeadTotal
+  const saving = useMemo(
+    () => Math.max(0, perHeadTotal - event.ticket.familyKes),
+    [perHeadTotal],
+  )
 
   useEffect(() => () => clearInterval(pollRef.current), [])
 
@@ -27,12 +41,22 @@ export default function TicketBox() {
     setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
+  /**
+   * Counts must be derived from the previous state, not from a value captured
+   * at render. Two taps landing in the same React batch both read the same
+   * stale number and the second one is lost.
+   */
+  function step(field, delta, min, max) {
+    setForm((f) => ({ ...f, [field]: Math.min(max, Math.max(min, f[field] + delta)) }))
+    setErrors((e) => ({ ...e, [field]: undefined }))
+  }
+
   function validate() {
     const next = {}
     if (form.name.trim().length < 3) next.name = 'Please enter your full name.'
     if (!normalizeKePhone(form.phone)) next.phone = 'Use a Safaricom number like 0712 345 678.'
     if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) next.email = 'That email looks incomplete.'
-    if (form.quantity < 1 || form.quantity > MAX_TICKETS) next.quantity = `Between 1 and ${MAX_TICKETS} tickets.`
+    if (form.parents < 1) next.parents = 'At least one parent or guardian must attend.'
     setErrors(next)
     return Object.keys(next).length === 0
   }
@@ -82,7 +106,9 @@ export default function TicketBox() {
         name: form.name.trim(),
         email: form.email.trim() || undefined,
         phone: normalizeKePhone(form.phone),
-        quantity: form.quantity,
+        ticketType,
+        parents: form.parents,
+        children: form.children,
       })
       setOrder(result)
       setStatus('pending')
@@ -108,16 +134,38 @@ export default function TicketBox() {
           <h2 className="h2">
             Register <span className="script script--gold">today</span>
           </h2>
+
+          {offerActive && (
+            <div className="offerCallout">
+              <span className="offerCallout__badge">3-day offer</span>
+              <p>
+                <strong>{formatKes(event.ticket.familyKes)} for the whole family</strong> — however
+                many of you are coming. Ends {event.ticket.offerEndsLabel}.
+              </p>
+            </div>
+          )}
+
           <p className="tickets__lede">
-            {formatKes(event.ticket.priceKes)} {event.ticket.unit}. Pay straight from your phone — we
-            send an M-Pesa request, you enter your PIN, and your slot is booked.
+            Pay straight from your phone — we send an M-Pesa request, you enter your PIN, and your
+            slot is booked.
           </p>
 
-          <ol className="steps">
-            <li><span>1</span> Fill in your details and how many children are coming.</li>
-            <li><span>2</span> Approve the M-Pesa prompt on your phone with your PIN.</li>
-            <li><span>3</span> Get your confirmation code — show it at registration.</li>
-          </ol>
+          <ul className="priceList">
+            <li>
+              <span>Parent / guardian</span>
+              <strong>{formatKes(event.ticket.parentKes)}</strong>
+            </li>
+            <li>
+              <span>Child</span>
+              <strong>{formatKes(event.ticket.childKes)}</strong>
+            </li>
+            {offerActive && (
+              <li className="priceList__offer">
+                <span>Whole family <em>(limited offer)</em></span>
+                <strong>{formatKes(event.ticket.familyKes)}</strong>
+              </li>
+            )}
+          </ul>
 
           <a className="tickets__help" href={`https://wa.me/${event.phoneIntl}`} target="_blank" rel="noreferrer">
             <Icon name="whatsapp" size={20} />
@@ -125,14 +173,13 @@ export default function TicketBox() {
           </a>
         </div>
 
-        {/* Own anchor: on mobile the pitch column stacks above this card, so
-            jumping to #tickets leaves the form a screen below the fold. */}
         <div className="ticketCard" id="book">
           <div className="ticketCard__head">
             <div>
               <p className="ticketCard__kicker">Family Connection Experience</p>
               <p className="ticketCard__price">
-                {formatKes(event.ticket.priceKes)} <small>{event.ticket.unit}</small>
+                {formatKes(total)}{' '}
+                <small>{ticketType === 'family' ? 'whole family' : 'total'}</small>
               </p>
             </div>
             <Icon name="ticket" size={30} />
@@ -158,6 +205,44 @@ export default function TicketBox() {
               <form className="form" onSubmit={handleSubmit} noValidate>
                 {status === 'failed' && (
                   <p className="alert alert--error" role="alert">{message}</p>
+                )}
+
+                {offerActive && (
+                  <div className="choice" role="radiogroup" aria-label="Ticket type">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={ticketType === 'family'}
+                      className={`choice__opt ${ticketType === 'family' ? 'is-on' : ''}`}
+                      onClick={() => setTicketType('family')}
+                    >
+                      <span className="choice__top">
+                        <strong>Family ticket</strong>
+                        <b>{formatKes(event.ticket.familyKes)}</b>
+                      </span>
+                      <span className="choice__sub">
+                        Everyone in your family, however many
+                        {saving > 0 && <em> · save {formatKes(saving)}</em>}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={ticketType === 'per_head'}
+                      className={`choice__opt ${ticketType === 'per_head' ? 'is-on' : ''}`}
+                      onClick={() => setTicketType('per_head')}
+                    >
+                      <span className="choice__top">
+                        <strong>Pay per person</strong>
+                        <b>{formatKes(perHeadTotal)}</b>
+                      </span>
+                      <span className="choice__sub">
+                        {formatKes(event.ticket.parentKes)} per parent ·{' '}
+                        {formatKes(event.ticket.childKes)} per child
+                      </span>
+                    </button>
+                  </div>
                 )}
 
                 <label className="field">
@@ -197,31 +282,32 @@ export default function TicketBox() {
                   {errors.email && <em>{errors.email}</em>}
                 </label>
 
-                <div className="field">
-                  <span>How many children?</span>
-                  <div className="stepper">
-                    <button
-                      type="button"
-                      onClick={() => update('quantity', Math.max(1, form.quantity - 1))}
-                      aria-label="Fewer tickets"
-                    >
-                      −
-                    </button>
-                    <strong>{form.quantity}</strong>
-                    <button
-                      type="button"
-                      onClick={() => update('quantity', Math.min(MAX_TICKETS, form.quantity + 1))}
-                      aria-label="More tickets"
-                    >
-                      +
-                    </button>
-                  </div>
-                  {errors.quantity && <em>{errors.quantity}</em>}
+                <div className="counts">
+                  <Counter
+                    label="Parents / guardians"
+                    value={form.parents}
+                    onStep={(d) => step('parents', d, 1, MAX_PARENTS)}
+                  />
+                  <Counter
+                    label="Children"
+                    value={form.children}
+                    onStep={(d) => step('children', d, 0, MAX_CHILDREN)}
+                  />
                 </div>
+                {errors.parents && <em className="counts__err">{errors.parents}</em>}
+
+                {ticketType === 'family' && (
+                  <p className="counts__note">
+                    <Icon name="check" size={15} />
+                    Headcount is for seating and catering — the family price is the same either way.
+                  </p>
+                )}
 
                 <div className="total">
                   <span>
-                    {form.quantity} × {formatKes(event.ticket.priceKes)}
+                    {ticketType === 'family'
+                      ? 'Family ticket'
+                      : `${form.parents}×${event.ticket.parentKes.toLocaleString('en-KE')} + ${form.children}×${event.ticket.childKes.toLocaleString('en-KE')}`}
                   </span>
                   <strong>{formatKes(total)}</strong>
                 </div>
@@ -251,6 +337,23 @@ export default function TicketBox() {
   )
 }
 
+function Counter({ label, value, onStep }) {
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <div className="stepper">
+        <button type="button" onClick={() => onStep(-1)} aria-label={`Fewer ${label.toLowerCase()}`}>
+          −
+        </button>
+        <strong>{value}</strong>
+        <button type="button" onClick={() => onStep(1)} aria-label={`More ${label.toLowerCase()}`}>
+          +
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PendingPrompt({ phone, total, instruction, onCancel }) {
   return (
     <div className="state">
@@ -272,6 +375,13 @@ function PendingPrompt({ phone, total, instruction, onCancel }) {
 }
 
 function Confirmation({ order, onReset }) {
+  const people = [
+    `${order.parents} ${order.parents === 1 ? 'parent' : 'parents'}`,
+    order.children > 0 && `${order.children} ${order.children === 1 ? 'child' : 'children'}`,
+  ]
+    .filter(Boolean)
+    .join(' and ')
+
   return (
     <div className="state state--success">
       <span className="state__check">
@@ -279,8 +389,7 @@ function Confirmation({ order, onReset }) {
       </span>
       <h3>You're in!</h3>
       <p>
-        {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'} confirmed for the Family
-        Connection Experience.
+        Confirmed for {people} at the Family Connection Experience.
       </p>
       <p className="state__ref">
         Reference

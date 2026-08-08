@@ -1,12 +1,18 @@
 import Icon from './Icons.jsx'
 import Crest from './Crest.jsx'
-import { event, formatKes } from '../data/event.js'
+import { event, formatKes, isFamilyOfferActive } from '../data/event.js'
 
 const details = [
   { icon: 'calendar', label: 'Date', value: [event.date.weekday, event.date.full] },
   { icon: 'clock', label: 'Time', value: [event.time] },
   { icon: 'pin', label: 'Venue', value: ['Grace Height', 'Heritage Academy'] },
-  { icon: 'ticket', label: 'Tickets', value: [formatKes(event.ticket.priceKes), event.ticket.unit] },
+  {
+    icon: 'ticket',
+    label: 'Tickets',
+    value: isFamilyOfferActive()
+      ? [`${formatKes(event.ticket.familyKes)} per family`, `ends ${event.ticket.offerEndsLabel}`]
+      : [`${formatKes(event.ticket.parentKes)} parent`, `${formatKes(event.ticket.childKes)} child`],
+  },
 ]
 
 export default function Hero() {
@@ -65,7 +71,9 @@ export default function Hero() {
         <div className="hero__ticketWrap">
           <div className="stub" aria-hidden="true">
             <div className="stub__top">
-              <p className="stub__kicker">Admit one child</p>
+              <p className="stub__kicker">
+                {isFamilyOfferActive() ? 'Admit one family' : 'Admit one'}
+              </p>
               <p className="stub__title">Family Connection Experience</p>
               <p className="stub__script">Know Your Child. Grow Your Child.</p>
             </div>
@@ -84,8 +92,12 @@ export default function Hero() {
                 <p className="stub__value">11AM – 5PM</p>
               </div>
               <div className="stub__price">
-                <p className="stub__label">Price</p>
-                <p className="stub__value stub__value--big">{formatKes(event.ticket.priceKes)}</p>
+                <p className="stub__label">{isFamilyOfferActive() ? 'Family' : 'From'}</p>
+                <p className="stub__value stub__value--big">
+                  {formatKes(
+                    isFamilyOfferActive() ? event.ticket.familyKes : event.ticket.childKes,
+                  )}
+                </p>
               </div>
             </div>
           </div>

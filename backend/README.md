@@ -1,14 +1,20 @@
 # Backend — ticketing API
 
-Express + Paystack + MongoDB. Charges a flat **KSh 1,500 per child** by M-Pesa
-STK push and records every order in Atlas.
+Express + Paystack + MongoDB. Prices a booking, charges it by M-Pesa STK push,
+and records every order in Atlas.
+
+| Ticket | Price |
+| ------ | ----- |
+| Parent / guardian | KSh 1,000 |
+| Child | KSh 500 |
+| Whole family (limited offer, any size) | KSh 2,500 |
 
 ```bash
 cd backend
 npm install
 cp .env.example .env      # Paystack SECRET key + Atlas connection string
 npm run dev               # http://localhost:4000
-npm test                  # 15 tests, mock Paystack + throwaway mongod
+npm test                  # 17 tests, mock Paystack + throwaway mongod
 ```
 
 Needs **Node 20.19+** (24 recommended). `npm test` spins up its own local
@@ -25,8 +31,10 @@ Needs **Node 20.19+** (24 recommended). `npm test` spins up its own local
 | GET    | `/api/orders`            | admin token | Attendee list + totals |
 | POST   | `/api/paystack/webhook`  | signature   | Paystack `charge.success` / `charge.failed` |
 
-`POST /api/checkout` takes `{ name, phone, email?, quantity }` and returns
-`{ reference, status, quantity, amount, currency, instruction }`.
+`POST /api/checkout` takes
+`{ name, phone, email?, ticketType, parents, children }` where `ticketType` is
+`family` or `per_head`, and returns
+`{ reference, status, ticketType, parents, children, attendees, amount, currency, instruction }`.
 
 ```bash
 curl -H "x-admin-token: $ADMIN_TOKEN" https://your-api.onrender.com/api/orders
@@ -43,8 +51,12 @@ no confusable characters, because parents read it over the phone).
   name: 'Jane Wanjiru',
   phone: '254712345678',        // normalised on the way in
   email: 'jane@example.com',
-  quantity: 2,
-  amountCents: 300000,          // minor units end to end, never floats
+  ticketType: 'family',         // family | per_head
+  parents: 2,
+  children: 4,
+  attendees: 6,                 // recorded even on the flat family rate,
+                                // because catering and seating need it
+  amountCents: 250000,          // minor units end to end, never floats
   currency: 'KES',
   status: 'paid',               // pending | paid | failed | abandoned
   message: null,
@@ -58,9 +70,12 @@ Indexes created at startup: unique on `reference`, plus `phone+createdAt`,
 
 ## How the money is protected
 
-- **The client never sends an amount.** It sends `quantity`; the server
-  multiplies by the configured price. Extra fields like `amount` in the request
-  body are ignored — there is a test for exactly this.
+- **The client never sends an amount.** It sends the ticket type and headcount;
+  the server prices it. Extra fields like `amount` in the request body are
+  ignored — there is a test for exactly this.
+- **The family offer expires on the server.** `OFFER_ENDS_AT` is checked against
+  the server clock on every checkout, so a stale tab, a wound-back device clock,
+  or a hand-crafted request cannot buy the offer after it closes.
 - **Paid means Paystack said paid.** An order only reaches `paid` after the
   transaction's amount *and* currency match what was requested. A mismatch is
   logged loudly and failed for manual review rather than quietly honoured.

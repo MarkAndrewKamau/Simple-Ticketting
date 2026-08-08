@@ -14,17 +14,22 @@ export const event = {
 
   date: {
     weekday: 'Saturday',
-    full: '15th August 2025',
+    full: '15th August 2026',
     short: '15 Aug',
   },
   time: '11:00 AM – 5:00 PM',
   venue: 'Grace Height Heritage Academy',
-  phone: '0707 777 978',
-  phoneIntl: '254707777978',
+  phone: '0745 418 065',
+  phoneIntl: '254745418065',
 
   ticket: {
-    priceKes: 1500,
-    unit: 'per child',
+    parentKes: 1000,
+    childKes: 500,
+    familyKes: 2500,
+    // End of day, East Africa Time. The server holds the authoritative copy of
+    // this — the browser clock decides what to show, never what to charge.
+    offerEndsAt: '2026-08-12T23:59:59+03:00',
+    offerEndsLabel: 'Wed 12 Aug',
   },
 
   pillars: [
@@ -81,3 +86,11 @@ export const event = {
 }
 
 export const formatKes = (amount) => `KSh ${amount.toLocaleString('en-KE')}`
+
+/**
+ * Whether the flat family rate is still on. This drives what the page shows;
+ * the server independently re-checks it before charging, so a stale tab or a
+ * wound-back device clock cannot buy the offer late.
+ */
+export const isFamilyOfferActive = () =>
+  Date.now() <= new Date(event.ticket.offerEndsAt).getTime()

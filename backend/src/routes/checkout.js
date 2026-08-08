@@ -28,7 +28,7 @@ const limitByPhone = createRateLimiter({
   max: 4,
   message:
     'We have already sent several payment requests to this number. Please wait a few minutes, ' +
-    'or call us on 0707 777 978 if the prompt is not arriving.',
+    'or call us on 0745 418 065 if the prompt is not arriving.',
 })
 
 router.post('/checkout', async (req, res, next) => {
@@ -39,7 +39,8 @@ router.post('/checkout', async (req, res, next) => {
       return res.status(429).json({ message: ipCheck.message })
     }
 
-    const { name, phone, email, quantity, amountCents } = parseCheckout(req.body)
+    const { name, phone, email, ticketType, parents, children, attendees, amountCents } =
+      parseCheckout(req.body)
 
     const phoneCheck = limitByPhone(phone)
     if (!phoneCheck.allowed) {
@@ -50,7 +51,7 @@ router.post('/checkout', async (req, res, next) => {
     // If a prompt is already sitting on this phone, hand back that order
     // instead of firing a second STK push at them.
     const inFlight = await orders.findRecentPending(phone, DUPLICATE_WINDOW_MS)
-    if (inFlight && inFlight.quantity === quantity) {
+    if (inFlight && inFlight.amountCents === amountCents && inFlight.ticketType === ticketType) {
       return res.status(200).json({
         ...toPublicOrder(inFlight),
         instruction: 'A payment request is already on your phone. Enter your M-Pesa PIN to confirm.',
@@ -66,7 +67,10 @@ router.post('/checkout', async (req, res, next) => {
       name,
       phone,
       email: chargeEmail,
-      quantity,
+      ticketType,
+      parents,
+      children,
+      attendees,
       amountCents,
       currency: config.ticket.currency,
     })
@@ -81,11 +85,22 @@ router.post('/checkout', async (req, res, next) => {
         phone: toPaystackPhone(phone),
         metadata: {
           parent_name: name,
-          tickets: quantity,
+          ticket_type: ticketType,
+          parents,
+          children,
           event: 'The Family Connection Experience',
           custom_fields: [
             { display_name: 'Parent / Guardian', variable_name: 'parent_name', value: name },
-            { display_name: 'Tickets', variable_name: 'tickets', value: String(quantity) },
+            {
+              display_name: 'Ticket',
+              variable_name: 'ticket_type',
+              value: ticketType === 'family' ? 'Family offer' : 'Per person',
+            },
+            {
+              display_name: 'Attending',
+              variable_name: 'attending',
+              value: `${parents} parent(s), ${children} child(ren)`,
+            },
           ],
         },
       })
@@ -115,7 +130,9 @@ router.post('/checkout', async (req, res, next) => {
       return res.status(200).json(toPublicOrder(updated))
     }
 
-    console.log(`[checkout] ${reference}: ${quantity} ticket(s) for ${phone} — STK push sent`)
+    console.log(
+      `[checkout] ${reference}: ${ticketType} · ${parents}p/${children}c for ${phone} — STK push sent`,
+    )
 
     return res.status(201).json({
       ...toPublicOrder(await orders.find(reference)),

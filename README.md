@@ -1,7 +1,9 @@
 # The Family Connection Experience — Ticketing
 
 Landing page + ticket checkout for Grace Height Heritage Academy's family day.
-Tickets are a flat **KSh 1,500 per child**, paid by M-Pesa through Paystack.
+Pricing is **KSh 1,000 per parent** and **KSh 500 per child**, with a limited
+**KSh 2,500 whole-family** offer running until 12 August. Paid by M-Pesa through
+Paystack.
 
 ```
 frontend/   Vite + React landing page and checkout form  → Render Static Site
@@ -61,10 +63,12 @@ usual ways a QR stops scanning.
 
 ## Payment flow
 
-1. Parent fills in name, M-Pesa number, optional email, and number of children.
-2. Frontend `POST /api/checkout` with `{ name, email, phone, quantity }` —
-   **no amount**; the backend derives it from the fixed price so the total can't
-   be tampered with from the browser.
+1. Parent picks a ticket type (family or per-person), then fills in name,
+   M-Pesa number, optional email, and how many parents and children.
+2. Frontend `POST /api/checkout` with
+   `{ name, email, phone, ticketType, parents, children }` — **no amount**; the
+   backend prices it so the total can't be tampered with from the browser, and
+   re-checks the family offer deadline against its own clock.
 3. Backend creates a Paystack mobile-money charge → parent gets the STK push and
    just enters their PIN.
 4. Frontend polls `GET /api/orders/:reference` until `paid` / `failed`, while the

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Crest from './Crest.jsx'
 import Icon from './Icons.jsx'
-import { event, formatKes } from '../data/event.js'
+import { event, formatKes, isFamilyOfferActive } from '../data/event.js'
 
 export default function Nav() {
   const [stuck, setStuck] = useState(false)
@@ -32,7 +32,9 @@ export default function Nav() {
 
         <a className="btn btn--gold nav__cta" href="#book">
           <Icon name="ticket" size={18} />
-          Book · {formatKes(event.ticket.priceKes)}
+          {isFamilyOfferActive()
+            ? `Book · ${formatKes(event.ticket.familyKes)} family`
+            : `Book · from ${formatKes(event.ticket.childKes)}`}
         </a>
       </div>
     </header>

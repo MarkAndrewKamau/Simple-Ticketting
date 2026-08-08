@@ -159,6 +159,9 @@ before(async () => {
   process.env.ADMIN_TOKEN = 'test-admin-token-0123456789'
   process.env.NODE_ENV = 'test'
   process.env.FRONTEND_ORIGIN = 'http://localhost:5173'
+  // Far future so the family offer is live for most tests; the expiry itself
+  // is covered directly against parseCheckout with an injected clock.
+  process.env.OFFER_ENDS_AT = '2099-01-01T00:00:00+03:00'
 
   const { connect, disconnect } = await import('../src/db.js')
   const db = await connect()
@@ -188,55 +191,81 @@ const post = (path, body, headers = {}) =>
 
 const get = (path, headers = {}) => fetch(`${baseUrl}${path}`, { headers })
 
-const validBooking = { name: 'Jane Wanjiru', phone: '0712345678', quantity: 2 }
+const perHead = (over = {}) => ({
+  name: 'Jane Wanjiru',
+  phone: '0712345678',
+  ticketType: 'per_head',
+  parents: 2,
+  children: 1,
+  ...over,
+})
+
+const family = (over = {}) => ({ ...perHead(), ticketType: 'family', ...over })
+
+const validBooking = perHead()
 
 // Tests --------------------------------------------------------------------
 
-test('health reports test mode and the ticket price', async () => {
+test('health reports test mode, pricing and offer state', async () => {
   const res = await get('/api/health')
   assert.equal(res.status, 200)
   const body = await res.json()
   assert.equal(body.mode, 'test')
-  assert.equal(body.ticketPrice, 1500)
+  assert.deepEqual(body.pricing, { parent: 1000, child: 500, family: 2500 })
+  assert.equal(body.familyOffer.active, true)
 })
 
-test('checkout creates a pending order priced server-side', async () => {
-  const res = await post('/api/checkout', validBooking)
+test('per-head checkout charges 1000 per parent and 500 per child', async () => {
+  const res = await post('/api/checkout', validBooking) // 2 parents, 1 child
   assert.equal(res.status, 201)
 
   const body = await res.json()
   assert.equal(body.status, 'pending')
-  assert.equal(body.quantity, 2)
-  assert.equal(body.amount, 3000)
+  assert.equal(body.ticketType, 'per_head')
+  assert.equal(body.parents, 2)
+  assert.equal(body.children, 1)
+  assert.equal(body.attendees, 3)
+  assert.equal(body.amount, 2500) // 2×1000 + 1×500
   assert.equal(body.currency, 'KES')
   assert.match(body.reference, /^FCE-[2-9A-Z]{6}$/)
-  assert.match(body.instruction, /mobile phone/)
 
   // The charge that reached Paystack must be in cents.
-  assert.equal(mock.charges.get(body.reference).amount, 300000)
+  assert.equal(mock.charges.get(body.reference).amount, 250000)
+})
+
+test('the family ticket is flat however large the family', async () => {
+  const small = await (await post('/api/checkout', family({ phone: '0700000001', parents: 1, children: 1 }))).json()
+  const huge = await (await post('/api/checkout', family({ phone: '0700000002', parents: 2, children: 9 }))).json()
+
+  assert.equal(small.amount, 2500)
+  assert.equal(huge.amount, 2500)
+  assert.equal(huge.attendees, 11)
+  assert.equal(mock.charges.get(huge.reference).amount, 250000)
 })
 
 test('a client-supplied amount cannot change what is charged', async () => {
   const res = await post('/api/checkout', {
-    name: 'Peter Otieno',
-    phone: '0722000111',
-    quantity: 1,
+    ...perHead({ phone: '0722000111', parents: 3, children: 4 }),
     amount: 1,
     amountCents: 1,
     price: 1,
   })
   const body = await res.json()
-  assert.equal(body.amount, 1500)
-  assert.equal(mock.charges.get(body.reference).amount, 150000)
+  assert.equal(body.amount, 5000) // 3×1000 + 4×500, not 1
+  assert.equal(mock.charges.get(body.reference).amount, 500000)
 })
 
 test('bad input is rejected with a readable message', async () => {
   const cases = [
     [{ ...validBooking, phone: '12345' }, /Kenyan mobile/],
     [{ ...validBooking, name: 'Jo' }, /full name/],
-    [{ ...validBooking, quantity: 0 }, /between 1 and 10/],
-    [{ ...validBooking, quantity: 99 }, /between 1 and 10/],
-    [{ ...validBooking, quantity: 1.5 }, /between 1 and 10/],
+    [{ ...validBooking, ticketType: 'free' }, /family ticket or per-person/],
+    [{ ...validBooking, ticketType: undefined }, /family ticket or per-person/],
+    [{ ...validBooking, parents: 0 }, /between 1 and 10 parents/],
+    [{ ...validBooking, parents: 99 }, /between 1 and 10 parents/],
+    [{ ...validBooking, parents: 1.5 }, /between 1 and 10 parents/],
+    [{ ...validBooking, children: -1 }, /up to 20 children/],
+    [{ ...validBooking, children: 99 }, /up to 20 children/],
     [{ ...validBooking, email: 'not-an-email' }, /email/],
   ]
 
@@ -247,11 +276,34 @@ test('bad input is rejected with a readable message', async () => {
   }
 })
 
+test('the family rate is refused once the offer has closed', async () => {
+  const { parseCheckout, computeAmountCents, isFamilyOfferActive } = await import(
+    '../src/lib/validate.js'
+  )
+  const afterDeadline = new Date('2099-01-02T00:00:00+03:00')
+  const beforeDeadline = new Date('2098-12-31T00:00:00+03:00')
+
+  assert.equal(isFamilyOfferActive(beforeDeadline), true)
+  assert.equal(isFamilyOfferActive(afterDeadline), false)
+
+  // Same request, only the clock differs.
+  assert.equal(parseCheckout(family(), beforeDeadline).amountCents, 250000)
+  assert.throws(
+    () => parseCheckout(family(), afterDeadline),
+    /family offer has now closed/,
+    'an expired offer must not be purchasable',
+  )
+
+  // Per-head pricing keeps working after the deadline.
+  assert.equal(parseCheckout(perHead(), afterDeadline).amountCents, 250000)
+  assert.equal(computeAmountCents({ ticketType: 'per_head', parents: 1, children: 0 }), 100000)
+})
+
 test('any way of writing the number reaches Paystack as E.164 +254…', async () => {
   mock.chargedPhones.length = 0
 
   for (const phone of ['0733111222', '254733111222', '+254 733 111 222', '733111222']) {
-    const res = await post('/api/checkout', { name: 'Mary Achieng', phone, quantity: 1 })
+    const res = await post('/api/checkout', perHead({ name: 'Mary Achieng', phone, parents: 1, children: 0 }))
     const body = await res.json()
     assert.equal(body.status, 'pending', `${phone} → ${body.status}`)
   }
@@ -266,15 +318,15 @@ test('any way of writing the number reaches Paystack as E.164 +254…', async ()
 })
 
 test('a double-tapped booking reuses the in-flight order', async () => {
-  const first = await (await post('/api/checkout', { name: 'Sam Kiptoo', phone: '0700111222', quantity: 3 })).json()
-  const second = await (await post('/api/checkout', { name: 'Sam Kiptoo', phone: '0700111222', quantity: 3 })).json()
+  const first = await (await post('/api/checkout', perHead({ name: 'Sam Kiptoo', phone: '0700111222', parents: 2, children: 2 }))).json()
+  const second = await (await post('/api/checkout', perHead({ name: 'Sam Kiptoo', phone: '0700111222', parents: 2, children: 2 }))).json()
 
   assert.equal(second.reference, first.reference)
   assert.match(second.instruction, /already on your phone/)
 })
 
 test('polling reflects a successful payment via verify', async () => {
-  const order = await (await post('/api/checkout', { name: 'Grace Mumo', phone: '0711333444', quantity: 1 })).json()
+  const order = await (await post('/api/checkout', perHead({ name: 'Grace Mumo', phone: '0711333444', parents: 1, children: 0 }))).json()
 
   const pending = await (await get(`/api/orders/${order.reference}`)).json()
   assert.equal(pending.status, 'pending')
@@ -288,11 +340,11 @@ test('polling reflects a successful payment via verify', async () => {
 })
 
 test('an underpaid transaction is never marked paid', async () => {
-  const order = await (await post('/api/checkout', { name: 'Ali Hassan', phone: '0798777666', quantity: 2 })).json()
+  const order = await (await post('/api/checkout', perHead({ name: 'Ali Hassan', phone: '0798777666', parents: 2, children: 0 }))).json()
 
   const charge = mock.charges.get(order.reference)
   charge.status = 'success'
-  charge.amount = 100 // KSh 1 instead of KSh 3,000
+  charge.amount = 100 // KSh 1 instead of KSh 2,000
   await new Promise((r) => setTimeout(r, 3100))
 
   const result = await (await get(`/api/orders/${order.reference}`)).json()
@@ -301,11 +353,11 @@ test('an underpaid transaction is never marked paid', async () => {
 })
 
 test('webhook with a valid signature marks the order paid', async () => {
-  const order = await (await post('/api/checkout', { name: 'Ruth Njeri', phone: '0755222333', quantity: 1 })).json()
+  const order = await (await post('/api/checkout', perHead({ name: 'Ruth Njeri', phone: '0755222333', parents: 1, children: 0 }))).json()
 
   const payload = JSON.stringify({
     event: 'charge.success',
-    data: { reference: order.reference, status: 'success', amount: 150000, currency: 'KES', id: 42 },
+    data: { reference: order.reference, status: 'success', amount: 100000, currency: 'KES', id: 42 },
   })
   const signature = createHmac('sha512', SECRET).update(payload).digest('hex')
 
@@ -322,11 +374,11 @@ test('webhook with a valid signature marks the order paid', async () => {
 })
 
 test('webhook with a forged signature changes nothing', async () => {
-  const order = await (await post('/api/checkout', { name: 'Fake Payer', phone: '0766444555', quantity: 1 })).json()
+  const order = await (await post('/api/checkout', perHead({ name: 'Fake Payer', phone: '0766444555', parents: 1, children: 0 }))).json()
 
   const payload = JSON.stringify({
     event: 'charge.success',
-    data: { reference: order.reference, status: 'success', amount: 150000, currency: 'KES' },
+    data: { reference: order.reference, status: 'success', amount: 100000, currency: 'KES' },
   })
 
   const res = await fetch(`${baseUrl}/api/paystack/webhook`, {
@@ -341,7 +393,7 @@ test('webhook with a forged signature changes nothing', async () => {
 })
 
 test('a paid order cannot be walked back by a later failure', async () => {
-  const order = await (await post('/api/checkout', { name: 'Paid Once', phone: '0744888999', quantity: 1 })).json()
+  const order = await (await post('/api/checkout', perHead({ name: 'Paid Once', phone: '0744888999', parents: 1, children: 0 }))).json()
 
   mock.charges.get(order.reference).status = 'success'
   await new Promise((r) => setTimeout(r, 3100))
@@ -349,7 +401,7 @@ test('a paid order cannot be walked back by a later failure', async () => {
 
   const payload = JSON.stringify({
     event: 'charge.failed',
-    data: { reference: order.reference, status: 'failed', amount: 150000, currency: 'KES' },
+    data: { reference: order.reference, status: 'failed', amount: 100000, currency: 'KES' },
   })
   const signature = createHmac('sha512', SECRET).update(payload).digest('hex')
   await fetch(`${baseUrl}/api/paystack/webhook`, {
@@ -364,7 +416,7 @@ test('a paid order cannot be walked back by a later failure', async () => {
 
 test('a Paystack rejection surfaces as a readable failure', async () => {
   mock.failCharge = 'Invalid phone number for mobile money'
-  const res = await post('/api/checkout', { name: 'Rejected Parent', phone: '0788111000', quantity: 1 })
+  const res = await post('/api/checkout', perHead({ name: 'Rejected Parent', phone: '0788111000', parents: 1, children: 0 }))
   mock.failCharge = null
 
   assert.equal(res.status, 502)
@@ -388,15 +440,17 @@ test('the attendee list requires the admin token', async () => {
   assert.equal(res.status, 200)
 
   const body = await res.json()
-  assert.ok(body.summary.ticketsPaid >= 1)
-  assert.equal(body.summary.revenue, body.summary.ticketsPaid * 1500)
+  assert.ok(body.summary.attendeesPaid >= 1)
+  assert.ok(body.summary.parentsPaid >= 1)
+  assert.ok(body.summary.revenue > 0)
 })
 
 test('repeated pushes to one phone are rate limited', async () => {
   const phone = '0799000111'
   const codes = []
   for (let i = 0; i < 6; i += 1) {
-    const res = await post('/api/checkout', { name: 'Spam Target', phone, quantity: i + 1 })
+    // Vary the headcount so the duplicate-order guard does not absorb these.
+    const res = await post('/api/checkout', perHead({ name: 'Spam Target', phone, children: i }))
     codes.push(res.status)
   }
   assert.ok(codes.includes(429), `expected a 429 in ${codes}`)

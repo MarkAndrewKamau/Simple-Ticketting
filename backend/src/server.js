@@ -34,7 +34,12 @@ const server = app.listen(config.port, () => {
   const mode = config.paystack.isLive ? 'LIVE' : 'test'
   console.log(`\n  Family Connection ticketing API`)
   console.log(`  → http://localhost:${config.port}`)
-  console.log(`  → Paystack ${mode} keys · KSh ${config.ticket.priceKes} per ticket`)
+  const t = config.ticket
+  console.log(`  → Paystack ${mode} keys`)
+  console.log(
+    `  → parent KSh ${t.parentCents / 100} · child KSh ${t.childCents / 100} · ` +
+      `family KSh ${t.familyCents / 100} (offer ends ${t.offerEndsAt.toISOString()})`,
+  )
   console.log(`  → allowed origins: ${config.allowedOrigins.join(', ')}`)
   if (config.paystack.isLive) {
     console.log('  ⚠  Live keys in use — real money will move.\n')

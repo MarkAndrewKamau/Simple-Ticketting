@@ -21,10 +21,20 @@ services:
         value: 24
       - key: NODE_ENV
         value: production
-      - key: TICKET_PRICE_KES
-        value: 1500
-      - key: MAX_TICKETS_PER_ORDER
+      - key: PARENT_PRICE_KES
+        value: 1000
+      - key: CHILD_PRICE_KES
+        value: 500
+      - key: FAMILY_PRICE_KES
+        value: 2500
+      # Keep the +03:00 offset — without it this is read as UTC and the offer
+      # closes three hours early.
+      - key: OFFER_ENDS_AT
+        value: "2026-08-12T23:59:59+03:00"
+      - key: MAX_PARENTS_PER_ORDER
         value: 10
+      - key: MAX_CHILDREN_PER_ORDER
+        value: 20
       - key: FALLBACK_EMAIL_DOMAIN
         value: guest.gracehha.ac.ke
       - key: MONGODB_DB_NAME

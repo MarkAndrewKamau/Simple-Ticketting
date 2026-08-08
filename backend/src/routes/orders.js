@@ -37,7 +37,9 @@ router.get('/orders', requireAdmin, async (req, res, next) => {
     return res.json({
       summary: {
         orders: totals.orders,
-        ticketsPaid: totals.ticketsPaid,
+        attendeesPaid: totals.attendeesPaid,
+        parentsPaid: totals.parentsPaid,
+        childrenPaid: totals.childrenPaid,
         revenue: totals.revenueCents / 100,
         currency: config.ticket.currency,
       },
@@ -46,7 +48,10 @@ router.get('/orders', requireAdmin, async (req, res, next) => {
         name: o.name,
         phone: o.phone,
         email: o.email,
-        quantity: o.quantity,
+        ticketType: o.ticketType,
+        parents: o.parents,
+        children: o.children,
+        attendees: o.attendees,
         amount: o.amountCents / 100,
         status: o.status,
         createdAt: o.createdAt,

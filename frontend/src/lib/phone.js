@@ -14,7 +14,7 @@ export function normalizeKePhone(input) {
   return `254${local}`
 }
 
-/** Pretty display form: 0707 777 978 */
+/** Pretty display form: 0745 418 065 */
 export function formatKePhone(input) {
   const normalized = normalizeKePhone(input)
   if (!normalized) return input

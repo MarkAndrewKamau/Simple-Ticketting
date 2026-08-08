@@ -44,14 +44,28 @@ function ordersCollection() {
 const TERMINAL_PAID = 'paid'
 
 export const orders = {
-  async create({ reference, name, phone, email, quantity, amountCents, currency }) {
+  async create({
+    reference,
+    name,
+    phone,
+    email,
+    ticketType,
+    parents,
+    children,
+    attendees,
+    amountCents,
+    currency,
+  }) {
     const now = new Date()
     const doc = {
       reference,
       name,
       phone,
       email,
-      quantity,
+      ticketType,
+      parents,
+      children,
+      attendees,
       amountCents,
       currency,
       status: 'pending',
@@ -123,8 +137,14 @@ export const orders = {
           $group: {
             _id: null,
             orders: { $sum: 1 },
-            ticketsPaid: {
-              $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$quantity', 0] },
+            attendeesPaid: {
+              $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$attendees', 0] },
+            },
+            parentsPaid: {
+              $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$parents', 0] },
+            },
+            childrenPaid: {
+              $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$children', 0] },
             },
             revenueCents: {
               $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$amountCents', 0] },
@@ -134,7 +154,9 @@ export const orders = {
       ])
       .toArray()
 
-    return row ?? { orders: 0, ticketsPaid: 0, revenueCents: 0 }
+    return (
+      row ?? { orders: 0, attendeesPaid: 0, parentsPaid: 0, childrenPaid: 0, revenueCents: 0 }
+    )
   },
 }
 
